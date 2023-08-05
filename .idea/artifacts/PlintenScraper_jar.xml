@@ -1,0 +1,9 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="PlintenScraper:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/PlintenScraper_jar</output-path>
+    <root id="archive" name="PlintenScraper.jar">
+      <element id="module-output" name="PlintenScraper" />
+      <element id="extracted-dir" path="$MAVEN_REPOSITORY$/org/jsoup/jsoup/1.15.3/jsoup-1.15.3.jar" path-in-jar="/" />
+    </root>
+  </artifact>
+</component>
