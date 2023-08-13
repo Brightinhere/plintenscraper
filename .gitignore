@@ -40,3 +40,6 @@ build/
 out/*
 product_images/*
 plinten.csv
+
+# Ignore recourses config file
+src/main/resources/config.properties

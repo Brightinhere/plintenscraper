@@ -1,5 +1,10 @@
 package org.example;
 
+import java.io.File;
+import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 class Product {
@@ -36,6 +41,34 @@ class Product {
         this.images = images;
         this.linkedProducts = linkedProducts;
     }
+
+    public Product(String[] values) {
+        this.title = values[0];
+        this.link = values[1];
+        this.name = values[2];
+        this.description = values[3];
+        this.code = values[4];
+        this.material = values[5];
+        this.height = values[6];
+        this.width = values[7];
+        this.length = values[8];
+        this.pricePerMeter = extractNumericValue(values[9]);
+        this.priceTax = extractNumericValue(values[10]);
+        this.subcategory = values[11];
+        this.subcategory2 = values[12];
+
+        // You can set the images by calling a method that reads them from the folder
+        // this.images = readImagesFromFolder("product_images/" + this.title);
+
+        // Handling linked products
+        if (values.length > 13) {
+            this.linkedProducts = Arrays.asList(values[13].split(";"));
+        } else {
+            this.linkedProducts = new ArrayList<>();
+        }
+        this.images = readImagesFromFolder("product_images/" + this.title.replaceAll("[^a-zA-Z0-9.-]", "_"));
+    }
+
 
     public String getTitle() {
         return title;
@@ -97,23 +130,31 @@ class Product {
         return linkedProducts;
     }
 
-    @Override
-    public String toString() {
-        return "Product{" +
-                "title='" + title + '\'' +
-                ", link='" + link + '\'' +
-                ", name='" + name + '\'' +
-                ", description='" + description + '\'' +
-                ", code='" + code + '\'' +
-                ", material='" + material + '\'' +
-                ", height='" + height + '\'' +
-                ", width='" + width + '\'' +
-                ", length='" + length + '\'' +
-                ", pricePerMeter='" + pricePerMeter + '\'' +
-                ", priceTax='" + priceTax + '\'' +
-                ", subcategory='" + subcategory + '\'' +
-                ", subcategory2='" + subcategory2 + '\'' +
-                ", images='" + images + '\'' +
-                '}';
+
+    public List<String> readImagesFromFolder(String folderPath) {
+        File folder = new File(folderPath);
+        List<String> imagePaths = new ArrayList<>();
+
+        if (folder.isDirectory()) {
+            File[] files = folder.listFiles();
+            if (files != null) {
+                for (File file : files) {
+                    if (file.isFile()) {
+                        imagePaths.add(file.getAbsolutePath());
+                    }
+                }
+            }
+        } else {
+            System.out.println("The provided path is not a directory: " + folderPath);
+        }
+
+        return imagePaths;
     }
+
+    public static String extractNumericValue(String value) {
+        return value.replaceAll("[^0-9,]", "").trim();
+    }
+
 }
+
+
