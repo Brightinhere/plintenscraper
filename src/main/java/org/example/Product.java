@@ -1,8 +1,6 @@
 package org.example;
 
 import java.io.File;
-import java.io.UnsupportedEncodingException;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -66,9 +64,8 @@ class Product {
         } else {
             this.linkedProducts = new ArrayList<>();
         }
-        this.images = readImagesFromFolder("product_images/" + this.title.replaceAll("[^a-zA-Z0-9.-]", "_"));
+        this.images = readImagesFromFolder(this.title.replaceAll("[^a-zA-Z0-9.-]", "_"));
     }
-
 
     public String getTitle() {
         return title;
@@ -83,7 +80,7 @@ class Product {
     }
 
     public String getDescription() {
-        return description;
+        return description.replace(";", ",");
     }
 
     public String getCode() {
@@ -106,8 +103,14 @@ class Product {
         return length;
     }
 
+    public String getSplitLength() {
+        return length.replace(", ", " |").replace(",", "|");
+    }
+
     public String getPricePerMeter() {
-        return pricePerMeter;
+        String[] parts = pricePerMeter.split(" ");
+        String price = parts.length > 1 ? parts[1] : pricePerMeter;
+        return price.replace(",", ".");
     }
 
     public String getPriceTax() {
@@ -131,25 +134,35 @@ class Product {
     }
 
 
-    public List<String> readImagesFromFolder(String folderPath) {
-        File folder = new File(folderPath);
+    private static List<String> readImagesFromFolder(String productName) {
         List<String> imagePaths = new ArrayList<>();
 
-        if (folder.isDirectory()) {
-            File[] files = folder.listFiles();
-            if (files != null) {
-                for (File file : files) {
-                    if (file.isFile()) {
-                        imagePaths.add(file.getAbsolutePath());
-                    }
+        String baseDir = "product_images";
+        File productFolder = new File(baseDir, productName);
+
+        if (productFolder.exists() && productFolder.isDirectory()) {
+            for (File file : productFolder.listFiles()) {
+                if (isImageFile(file)) {
+                    imagePaths.add(file.getAbsolutePath());
                 }
             }
-        } else {
-            System.out.println("The provided path is not a directory: " + folderPath);
         }
 
         return imagePaths;
     }
+
+    private static boolean isImageFile(File file) {
+        String[] validExtensions = {".jpg", ".jpeg", ".png", ".gif", ".bmp"};
+        String fileName = file.getName().toLowerCase();
+
+        for (String ext : validExtensions) {
+            if (fileName.endsWith(ext)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
 
     public static String extractNumericValue(String value) {
         return value.replaceAll("[^0-9,]", "").trim();

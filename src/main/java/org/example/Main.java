@@ -120,7 +120,7 @@ public class Main {
             // Write the product data
             for (Product product : products) {
                 String linkedProducts = String.join(";", product.getLinkedProducts());
-                writer.println(String.format("%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s",
+                writer.println(String.format("%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s",
                         product.getTitle(),
                         product.getLink(),
                         product.getName(),

@@ -1,16 +1,19 @@
 package org.example;
 
+import org.openqa.selenium.By;
+import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
-import org.openqa.selenium.By;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.List;
 
 public class InputBot {
 
@@ -56,12 +59,173 @@ public class InputBot {
 
     public static void addNewProduct(WebDriver driver, Product product) throws IOException {
         driver.get("https://plintendiscount.nl/wp-admin/post-new.php?post_type=product");
+        waitForClickable();
+
+        assignBasicInfo(product, driver);
+        assignCategories(product.getSubcategory(), product.getSubcategory2(), driver);
+        addProperties(product, driver);
+        addImages(product, driver);
+        saveProduct(driver);
+    }
+
+    private static void saveProduct(WebDriver driver) {
+        scrollToElementAndClick(driver, By.cssSelector("#publish"));
+    }
+
+    public static void addImages(Product product, WebDriver driver) {
+        scrollToElementAndClick(driver, By.cssSelector("#woocommerce-product-images > div.inside > p > a"));
+        waitForClickable();
+        driver.findElement(By.cssSelector(("#menu-item-upload"))).click();
+
+        // Wait for the popup to load
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+        wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("#__wp-uploader-id-1")));
+
+        JavascriptExecutor js = (JavascriptExecutor) driver;
+        js.executeScript("document.querySelector(\"input[id^='html5_']\").style.display = 'block';");
+
+        WebElement fileInput = driver.findElement(By.cssSelector("input[id^='html5_']"));
+
+        // Determine the image with the largest size
+        String largestSizeImagePath = null;
+        long maxSize = 0;
+        for (String imagePath : product.getImages()) {
+            File file = new File(imagePath);
+            if (file.length() > maxSize) {
+                maxSize = file.length();
+                largestSizeImagePath = imagePath;
+            }
+        }
+
+        for (String imagePath : product.getImages()) {
+            if (!imagePath.equals(largestSizeImagePath)) {
+                fileInput.sendKeys(imagePath);
+                waitForClickable();
+            }
+        }
+
+        // Wait for the images to be uploaded
+        String saveButtonSelector = "#__wp-uploader-id-0 > div.media-frame-toolbar > div > div.media-toolbar-primary.search-form > button";
+        wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector(saveButtonSelector)));
+        driver.findElement(By.cssSelector(saveButtonSelector)).click();
+
+        wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("#set-post-thumbnail")));
+        addMainPicture(largestSizeImagePath, driver);
+    }
+
+    public static void addMainPicture(String imagePath, WebDriver driver) {
+        scrollToElementAndClick(driver, By.cssSelector("#set-post-thumbnail"));
+        waitForClickable();
+        driver.findElement(By.cssSelector(("#menu-item-upload"))).click();
+//
+//        // Wait for the popup to load
+//        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+//        wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector("#menu-item-upload")));
+
+        driver.findElement(By.cssSelector("#__wp-uploader-id-4")).click();
+        waitForClickable();
+
+        JavascriptExecutor js = (JavascriptExecutor) driver;
+        js.executeScript("document.querySelectorAll(\"input[id^='html5_']\")[1].style.display = 'block';");
+
+        List<WebElement> fileInputs = driver.findElements(By.cssSelector("input[id^='html5_']"));
+        if (fileInputs.size() > 1) {
+            fileInputs.get(1).sendKeys(imagePath);
+        } else {
+            // Handle the scenario where there's only one or no matching element
+            System.err.println("Expected more than one matching element, but found less.");
+        }
+    }
+
+
+    public static void assignCategories(String category, String subcategory, WebDriver driver){
+        WebElement categoryCheckbox = driver.findElement(By.xpath("//li[label[contains(text(), '" + category + "')]]/label/input"));
+        if (!categoryCheckbox.isSelected()) {
+            categoryCheckbox.click();
+        }
+
+        WebElement subcategoryCheckbox = driver.findElement(By.xpath("//li[label[contains(text(), '" + subcategory + "')]]/label/input"));
+        if (!subcategoryCheckbox.isSelected()) {
+            subcategoryCheckbox.click();
+        }
+    }
+
+    public static void addProperties(Product product, WebDriver driver) {
+        // CSS Selectors
+        String propertiesTabSelector = "#woocommerce-product-data > div.inside > div > ul > li.attribute_options.attribute_tab > a";
+        String materialNameSelector = "#product_attributes > div.product_attributes.wc-metaboxes.ui-sortable > div > div > table > tbody > tr:nth-child(1) > td.attribute_name > input.attribute_name";
+        String materialValueSelector = "#product_attributes > div.product_attributes.wc-metaboxes.ui-sortable > div > div > table > tbody > tr:nth-child(1) > td:nth-child(2) > textarea";
+        String heightNameSelector = "#product_attributes > div.product_attributes.wc-metaboxes.ui-sortable > div:nth-child(2) > div > table > tbody > tr:nth-child(1) > td.attribute_name > input.attribute_name";
+        String heightValueSelector = "#product_attributes > div.product_attributes.wc-metaboxes.ui-sortable > div:nth-child(2) > div > table > tbody > tr:nth-child(1) > td:nth-child(2) > textarea";
+        String widthNameSelector = "#product_attributes > div.product_attributes.wc-metaboxes.ui-sortable > div:nth-child(3) > div > table > tbody > tr:nth-child(1) > td.attribute_name > input.attribute_name";
+        String widthValueSelector = "#product_attributes > div.product_attributes.wc-metaboxes.ui-sortable > div:nth-child(3) > div > table > tbody > tr:nth-child(1) > td:nth-child(2) > textarea";
+        String lengthNameSelector = "#product_attributes > div.product_attributes.wc-metaboxes.ui-sortable > div:nth-child(4) > div > table > tbody > tr:nth-child(1) > td.attribute_name > input.attribute_name";
+        String lengthValueSelector = "#product_attributes > div.product_attributes.wc-metaboxes.ui-sortable > div:nth-child(4) > div > table > tbody > tr:nth-child(1) > td:nth-child(2) > textarea";
+
+        scrollToElementAndClick(driver, By.cssSelector(propertiesTabSelector));
+
+        // Wait for the properties tab to load
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+        wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector(materialNameSelector)));
+
+        // Material
+        scrollToElementAndSendKeys(driver, By.cssSelector(materialNameSelector), "Materiaal");
+        scrollToElementAndSendKeys(driver, By.cssSelector(materialValueSelector), product.getMaterial());
+
+        clickNewPropertyButton(driver);
+
+        // Height
+        scrollToElementAndSendKeys(driver, By.cssSelector(heightNameSelector), "Hoogte");
+        scrollToElementAndSendKeys(driver, By.cssSelector(heightValueSelector), product.getHeight());
+
+        clickNewPropertyButton(driver);
+
+        // Width
+        scrollToElementAndSendKeys(driver, By.cssSelector(widthNameSelector), "Breedte");
+        scrollToElementAndSendKeys(driver, By.cssSelector(widthValueSelector), product.getWidth());
+
+        clickNewPropertyButton(driver);
+
+        // Length
+        scrollToElementAndSendKeys(driver, By.cssSelector(lengthNameSelector), "Lengte");
+        scrollToElementAndSendKeys(driver, By.cssSelector(lengthValueSelector), product.getSplitLength());
+    }
+
+
+    public static void clickNewPropertyButton(WebDriver driver) {
+        // Click on driver and wait for it to load
+        scrollToElementAndClick(driver, By.cssSelector("#product_attributes > div.toolbar.toolbar-top > div.actions > button"));
+        waitForClickable();
+    }
+
+    public static void scrollToElementAndClick(WebDriver driver, By by) {
+        WebElement element = driver.findElement(by);
+        ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView(true);", element);
+        ((JavascriptExecutor) driver).executeScript("window.scrollBy(0, -200);"); // Scroll up by 200 pixels
+        waitForClickable();
+        element.click();
+    }
+
+    public static void scrollToElementAndSendKeys(WebDriver driver, By by, String text) {
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+        wait.until(ExpectedConditions.elementToBeClickable(by));
+        WebElement element = driver.findElement(by);
+        ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView(true);", element);
+        ((JavascriptExecutor) driver).executeScript("window.scrollBy(0, -200);"); // Scroll up by 200 pixels
+        element.sendKeys(text);
+    }
+
+
+
+    public static void waitForClickable() {
         try {
             Thread.sleep(1000);
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
+    }
 
+    public static void assignBasicInfo(Product product, WebDriver driver){
         driver.findElement(By.id("title")).sendKeys(product.getTitle());
 
         WebElement iframe = driver.findElement(By.id("content_ifr"));
@@ -72,21 +236,10 @@ public class InputBot {
         driver.switchTo().defaultContent();
 
         driver.findElement(By.id("_regular_price")).sendKeys(product.getPricePerMeter());
+
+        // Inventory tab
+        driver.findElement(By.cssSelector("#woocommerce-product-data > div.inside > div > ul > li.inventory_options.inventory_tab.show_if_simple.show_if_variable.show_if_grouped.show_if_external > a")).click();
         driver.findElement(By.id("_sku")).sendKeys(product.getCode());
-        driver.findElement(By.id("_height")).sendKeys(product.getHeight());
-        driver.findElement(By.id("_width")).sendKeys(product.getWidth());
-        driver.findElement(By.id("_length")).sendKeys(product.getLength());
-
-        // Properties tab
-        driver.findElement(By.cssSelector("#woocommerce-product-data > div.inside > div > ul > li.attribute_options.attribute_tab.active > a")).click();
-        driver.findElement(By.cssSelector("#product_attributes > div.product_attributes.wc-metaboxes.ui-sortable > div > div > table > tbody > tr:nth-child(1) > td.attribute_name > input.attribute_name")).sendKeys("Materiaal");
-        driver.findElement(By.cssSelector("#product_attributes > div.product_attributes.wc-metaboxes.ui-sortable > div > div > table > tbody > tr:nth-child(1) > td:nth-child(2) > textarea")).sendKeys(product.getMaterial());
-
-        try {
-            Thread.sleep(100000000);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
     }
 
     public static void login(String baseUrl, String username, String password, WebDriver driver) throws IOException {
@@ -113,9 +266,12 @@ public class InputBot {
         String operator = parts[1];
 
         int answer = 0;
+
         if (operator.equals("+")) {
             answer = operand1 + operand2;
         }
+
         return answer;
     }
 }
+
