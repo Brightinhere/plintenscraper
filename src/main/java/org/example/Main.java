@@ -87,7 +87,6 @@ public class Main {
         String length = productPageDocument.select("#specifications > table > tbody > tr:nth-child(6) > td:nth-child(2)").text();
 
         String pricePerMeter = productPageDocument.select("#productUnitPrice > span").text();
-        String priceTax = productPageDocument.select("#productPrice > span").text();
 
         Elements images = productPageDocument.select(".productThumbnail");
         // array of images
@@ -104,7 +103,29 @@ public class Main {
             linkedProducts.add(linkedElement.text());
         }
 
-        return new Product(productTitle, page, name,description, code, material, height, width, length, pricePerMeter, priceTax, subcategory, subcategory2, imagesSrc, linkedProducts);
+        List<String> sizes = new ArrayList<>();
+        List<String> finishes = new ArrayList<>();
+        List<String> lengths = new ArrayList<>();
+        Elements options = productPageDocument.select("#inputProductSelection option");
+        for (Element option : options) {
+            sizes.add(option.text());
+        }
+
+        Elements finishOptions = productPageDocument.select("#inputProductMaterialFinish option");
+        for (Element finish : finishOptions) {
+            finishes.add(finish.text());
+        }
+
+        Elements lengthOptions = productPageDocument.select("#inputProductLength option");
+        for (Element finish : lengthOptions) {
+            if(finish.text().contains("mm")) {
+                lengths.add(finish.text());
+            } else {
+                lengths.add(finish.text() + " mm");
+            }
+        }
+
+        return new Product(productTitle, page, name,description, code, material, height, width, length, pricePerMeter, subcategory, subcategory2, imagesSrc, linkedProducts, sizes, finishes, lengths);
     }
 
     private static void exportProducts(List<Product> products) {
@@ -114,13 +135,13 @@ public class Main {
 
         try (PrintWriter writer = new PrintWriter(new FileWriter(fileName))) {
             // Write the header
-            writer.println("Title;Link;Name;Description;Code;Material;Height;Width;Length;PricePerMeter;PriceTax;Subcategory;Subcategory2");
+            writer.println("Title;Link;Name;Description;Code;Material;Height;Width;Length;PricePerMeter;Subcategory;Subcategory2;LinkedProducts;Sizes;Finishes;Lengths");
 
 
             // Write the product data
             for (Product product : products) {
-                String linkedProducts = String.join(";", product.getLinkedProducts());
-                writer.println(String.format("%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s",
+                String linkedProducts = String.join("%", product.getLinkedProducts());
+                writer.println(String.format("%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s",
                         product.getTitle(),
                         product.getLink(),
                         product.getName(),
@@ -131,14 +152,16 @@ public class Main {
                         product.getWidth(),
                         product.getLength(),
                         product.getPricePerMeter(),
-                        product.getPriceTax(),
                         product.getSubcategory(),
                         product.getSubcategory2(),
-                        linkedProducts
+                        linkedProducts,
+                        product.getSizes().size() > 0 ? String.join("%", product.getSizes()) : "",
+                        product.getFinishes().size() > 0 ? String.join("%", product.getFinishes()) : "",
+                        product.getLengths().size() > 0 ? String.join("%", product.getLengths()) : ""
                 ));
 
                 // Create a directory for the product's images
-                Path productDir = Paths.get(baseDir, product.getTitle().replaceAll("[^a-zA-Z0-9.-]", "_"));
+                Path productDir = Paths.get(baseDir, product.getTitle().replaceAll(",", "-").replaceAll("[^a-zA-Z0-9.-]", "_"));
                 Files.createDirectories(productDir);
 
                 // Download and save each image

@@ -6,6 +6,7 @@ import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.Select;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
 import java.io.BufferedReader;
@@ -33,28 +34,138 @@ public class InputBot {
         String csvFile = "plinten.csv";
         String line;
         String delimiter = ";";
-
+        int counter = 0;
         try (BufferedReader br = new BufferedReader(new FileReader(csvFile))) {
             String headerLine = br.readLine();
             String[] headers = headerLine.split(delimiter);
-
             while ((line = br.readLine()) != null) {
+                counter++;
+                if (counter <= 49) {
+                    continue;
+                }
                 String[] values = line.split(delimiter);
 
                 Product product = new Product(values);
-
                 addNewProduct(driver, product);
+                addOptionsForProduct(product, driver);
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
 
-        try {
-            Thread.sleep(5000);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
+    }
+
+    public static void addOptionsForProduct(Product product, WebDriver driver) {
+        driver.get("https://plintendiscount.nl/wp-admin/post-new.php?post_type=wpc_product_option");
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+        wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("#title")));
+        driver.findElement(By.cssSelector("#title")).sendKeys(product.getName());
+
+        Select tagDropdown = new Select(driver.findElement(By.cssSelector("#wpcpo_configuration > div.inside > table > tbody > tr > td > select")));
+        tagDropdown.selectByValue("product_tag");
+
+        wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("#wpcpo_configuration > div.inside > table > tbody > tr > td > div > span > span.selection > span > ul > li > input")));
+        scrollToElementAndSendKeys(driver, By.cssSelector("#wpcpo_configuration > div.inside > table > tbody > tr > td > div > span > span.selection > span > ul > li > input"), product.getName());
+        wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("li.select2-results__option.select2-results__option--highlighted")));
+        scrollToElementAndClick(driver, By.cssSelector("li.select2-results__option.select2-results__option--highlighted"));
+
+        Select dropdown = new Select(driver.findElement(By.cssSelector("#wpcpo-item-type")));
+        dropdown.selectByValue("select");
+        driver.findElement(By.cssSelector("#wpcpo_fields > div.inside > div > div.wpcpo-items-new > input")).click();
+
+        wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector("#wpcpo_fields > div.inside > div > div.wpcpo-items.ui-sortable > div > div.wpcpo-item-header > span.wpcpo-item-label")));
+        scrollToElementAndClick(driver, By.cssSelector("#wpcpo_fields > div.inside > div > div.wpcpo-items.ui-sortable > div > div.wpcpo-item-header > span.wpcpo-item-label"));
+
+        wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("[id^='tab-wpcpo-'][id$='-general'] > div:nth-child(2) > label > input")));
+        scrollToElementAndSendKeys(driver, By.cssSelector("[id^='tab-wpcpo-'][id$='-general'] > div:nth-child(2) > label > input"), "Afmeting");
+
+        checkBoxes(driver, "[id^='tab-wpcpo-'][id$='-general']");
+
+        wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("[id^='tab-wpcpo-'][id$='-general'] > div:nth-child(4) > label > textarea")));
+        scrollToElementAndSendKeys(driver, By.cssSelector("[id^='tab-wpcpo-'][id$='-general'] > div:nth-child(4) > label > textarea"), "Dikte x hoogte in millimeters.");
+
+        int counter = 1;
+        // For each finish, add a new option
+        for (String size : product.getSizes()) {
+            if (counter == 1) {
+                scrollToElementAndClick(driver, By.cssSelector("[id^='tab-wpcpo-'][id$='-general'] > div:nth-child(6) > div > div.inner-footer > button"));
+                wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("[id^='tab-wpcpo-'][id$='-general'] > div:nth-child(6) > div > div.inner-content.ui-sortable > div > input.option-name")));
+                driver.findElement(By.cssSelector("[id^='tab-wpcpo-'][id$='-general'] > div:nth-child(6) > div > div.inner-content.ui-sortable > div > input.option-name")).sendKeys(size);
+                driver.findElement(By.cssSelector("[id^='tab-wpcpo-'][id$='-general'] > div:nth-child(6) > div > div.inner-content.ui-sortable > div > input.option-value.wpcpo-input-not-empty")).sendKeys(size);
+            } else {
+                scrollToElementAndClick(driver, By.cssSelector("[id^='tab-wpcpo-'][id$='-general'] > div:nth-child(6) > div > div.inner-footer > button"));
+                wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("[id^='tab-wpcpo-'][id$='-general'] > div:nth-child(6) > div > div.inner-content.ui-sortable > div:nth-child(" + counter + ") > input.option-name")));
+                scrollToElementAndSendKeys(driver, By.cssSelector("[id^='tab-wpcpo-'][id$='-general'] > div:nth-child(6) > div > div.inner-content.ui-sortable > div:nth-child(" + counter + ") > input.option-name"), size);
+                scrollToElementAndSendKeys(driver, By.cssSelector("[id^='tab-wpcpo-'][id$='-general'] > div:nth-child(6) > div > div.inner-content.ui-sortable > div:nth-child(" + counter + ") > input.option-value.wpcpo-input-not-empty"), size);
+            }
+            counter++;
         }
-        driver.quit();
+
+        scrollToElementAndClick(driver, By.cssSelector("#wpcpo_fields > div.inside > div > div.wpcpo-items-new > input"));
+        wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector("#wpcpo_fields > div.inside > div > div.wpcpo-items.ui-sortable > div:nth-child(2) > div.wpcpo-item-header > span.wpcpo-item-label")));
+
+        String uniquePhrase = getPhrase(driver, 1).replace("][desc]", "");
+        String baseSelector = "#tab-wpcpo-" + uniquePhrase + "-general";
+
+        scrollToElementAndClick(driver, By.cssSelector("#wpcpo_fields > div.inside > div > div.wpcpo-items.ui-sortable > div:nth-child(2) > div.wpcpo-item-header > span.wpcpo-item-label"));
+        scrollToElementAndSendKeys(driver, By.cssSelector(baseSelector + " > div:nth-child(2) > label > input"), "Lengte");
+        checkBoxes(driver, baseSelector);
+
+        counter = 1;
+        for (String length : product.getLengths()) {
+            if (counter == 1) {
+                scrollToElementAndClick(driver, By.cssSelector(baseSelector + " > div:nth-child(6) > div > div.inner-footer > button"));
+                wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector(baseSelector + " > div:nth-child(6) > div > div.inner-content.ui-sortable > div > input.option-name")));
+                driver.findElement(By.cssSelector(baseSelector + " > div:nth-child(6) > div > div.inner-content.ui-sortable > div > input.option-name")).sendKeys(length);
+                driver.findElement(By.cssSelector(baseSelector + " > div:nth-child(6) > div > div.inner-content.ui-sortable > div > input.option-value.wpcpo-input-not-empty")).sendKeys(length);
+            } else {
+                scrollToElementAndClick(driver, By.cssSelector(baseSelector + " > div:nth-child(6) > div > div.inner-footer > button"));
+                wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector(baseSelector + " > div:nth-child(6) > div > div.inner-content.ui-sortable > div:nth-child(" + counter + ") > input.option-name")));
+                scrollToElementAndSendKeys(driver, By.cssSelector(baseSelector + " > div:nth-child(6) > div > div.inner-content.ui-sortable > div:nth-child(" + counter + ") > input.option-name"), length);
+                scrollToElementAndSendKeys(driver, By.cssSelector(baseSelector + " > div:nth-child(6) > div > div.inner-content.ui-sortable > div:nth-child(" + counter + ") > input.option-value.wpcpo-input-not-empty"), length);
+            }
+            counter++;
+        }
+
+        scrollToElementAndClick(driver, By.cssSelector("#wpcpo_fields > div.inside > div > div.wpcpo-items-new > input"));
+        wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector("#wpcpo_fields > div.inside > div > div.wpcpo-items.ui-sortable > div:nth-child(3) > div.wpcpo-item-header > span.wpcpo-item-label")));
+
+        uniquePhrase = getPhrase(driver, 2).replace("][desc]", "");
+        baseSelector = "#tab-wpcpo-" + uniquePhrase + "-general";
+
+        scrollToElementAndClick(driver, By.cssSelector("#wpcpo_fields > div.inside > div > div.wpcpo-items.ui-sortable > div:nth-child(3) > div.wpcpo-item-header > span.wpcpo-item-label"));
+        scrollToElementAndSendKeys(driver, By.cssSelector(baseSelector + " > div:nth-child(2) > label > input"), "Afwerking");
+        checkBoxes(driver, baseSelector);
+
+        counter = 1;
+        for (String finish : product.getFinishes()) {
+            if (counter == 1) {
+                scrollToElementAndClick(driver, By.cssSelector(baseSelector + " > div:nth-child(6) > div > div.inner-footer > button"));
+                wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector(baseSelector + " > div:nth-child(6) > div > div.inner-content.ui-sortable > div > input.option-name")));
+                driver.findElement(By.cssSelector(baseSelector + " > div:nth-child(6) > div > div.inner-content.ui-sortable > div > input.option-name")).sendKeys(finish);
+                driver.findElement(By.cssSelector(baseSelector + " > div:nth-child(6) > div > div.inner-content.ui-sortable > div > input.option-value.wpcpo-input-not-empty")).sendKeys(finish);
+            } else {
+                scrollToElementAndClick(driver, By.cssSelector(baseSelector + " > div:nth-child(6) > div > div.inner-footer > button"));
+                wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector(baseSelector + " > div:nth-child(6) > div > div.inner-content.ui-sortable > div:nth-child(" + counter + ") > input.option-name")));
+                scrollToElementAndSendKeys(driver, By.cssSelector(baseSelector + " > div:nth-child(6) > div > div.inner-content.ui-sortable > div:nth-child(" + counter + ") > input.option-name"), finish);
+                scrollToElementAndSendKeys(driver, By.cssSelector(baseSelector + " > div:nth-child(6) > div > div.inner-content.ui-sortable > div:nth-child(" + counter + ") > input.option-value.wpcpo-input-not-empty"), finish);
+            }
+            counter++;
+        }
+        scrollToElementAndClick(driver, By.cssSelector("#publish"));
+        wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector("#publish")));
+    }
+
+    public static void checkBoxes(WebDriver driver, String selector) {
+        WebElement requiredCheckbox = driver.findElement(By.cssSelector(selector + " > div:nth-child(5) > label > input[type=checkbox]"));
+        if (!requiredCheckbox.isSelected()) {
+            requiredCheckbox.click();
+        }
+
+        WebElement descriptionCheckbox = driver.findElement(By.cssSelector(selector + " > div:nth-child(4) > label > input[type=checkbox]"));
+        if (!descriptionCheckbox.isSelected()) {
+            descriptionCheckbox.click();
+        }
     }
 
     public static void addNewProduct(WebDriver driver, Product product) throws IOException {
@@ -65,7 +176,14 @@ public class InputBot {
         assignCategories(product.getSubcategory(), product.getSubcategory2(), driver);
         addProperties(product, driver);
         addImages(product, driver);
+        addTag(product, driver);
         saveProduct(driver);
+    }
+
+    private static void addTag(Product product, WebDriver driver) {
+        scrollToElementAndSendKeys(driver, By.cssSelector("#new-tag-product_tag"), product.getName());
+        scrollToElementAndClick(driver, By.cssSelector("#product_tag > div > div.ajaxtag.hide-if-no-js > input.button.tagadd"));
+        waitForClickable();
     }
 
     private static void saveProduct(WebDriver driver) {
@@ -75,10 +193,10 @@ public class InputBot {
     public static void addImages(Product product, WebDriver driver) {
         scrollToElementAndClick(driver, By.cssSelector("#woocommerce-product-images > div.inside > p > a"));
         waitForClickable();
-        driver.findElement(By.cssSelector(("#menu-item-upload"))).click();
+        scrollToElementAndClick(driver, By.cssSelector(("#menu-item-upload")));
 
         // Wait for the popup to load
-        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(20));
         wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("#__wp-uploader-id-1")));
 
         JavascriptExecutor js = (JavascriptExecutor) driver;
@@ -114,16 +232,10 @@ public class InputBot {
     }
 
     public static void addMainPicture(String imagePath, WebDriver driver) {
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
         scrollToElementAndClick(driver, By.cssSelector("#set-post-thumbnail"));
-        waitForClickable();
-        driver.findElement(By.cssSelector(("#menu-item-upload"))).click();
-//
-//        // Wait for the popup to load
-//        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
-//        wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector("#menu-item-upload")));
-
-        driver.findElement(By.cssSelector("#__wp-uploader-id-4")).click();
-        waitForClickable();
+        List<WebElement> elements = driver.findElements(By.id("menu-item-upload"));
+        elements.get(1).click();
 
         JavascriptExecutor js = (JavascriptExecutor) driver;
         js.executeScript("document.querySelectorAll(\"input[id^='html5_']\")[1].style.display = 'block';");
@@ -135,10 +247,12 @@ public class InputBot {
             // Handle the scenario where there's only one or no matching element
             System.err.println("Expected more than one matching element, but found less.");
         }
+        wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector("#__wp-uploader-id-3 > div.media-frame-toolbar > div > div.media-toolbar-primary.search-form > button")));
+        driver.findElement(By.cssSelector("#__wp-uploader-id-3 > div.media-frame-toolbar > div > div.media-toolbar-primary.search-form > button")).click();
     }
 
 
-    public static void assignCategories(String category, String subcategory, WebDriver driver){
+    public static void assignCategories(String category, String subcategory, WebDriver driver) {
         WebElement categoryCheckbox = driver.findElement(By.xpath("//li[label[contains(text(), '" + category + "')]]/label/input"));
         if (!categoryCheckbox.isSelected()) {
             categoryCheckbox.click();
@@ -172,23 +286,23 @@ public class InputBot {
         scrollToElementAndSendKeys(driver, By.cssSelector(materialNameSelector), "Materiaal");
         scrollToElementAndSendKeys(driver, By.cssSelector(materialValueSelector), product.getMaterial());
 
-        clickNewPropertyButton(driver);
+//        clickNewPropertyButton(driver);
 
         // Height
-        scrollToElementAndSendKeys(driver, By.cssSelector(heightNameSelector), "Hoogte");
-        scrollToElementAndSendKeys(driver, By.cssSelector(heightValueSelector), product.getHeight());
-
-        clickNewPropertyButton(driver);
-
-        // Width
-        scrollToElementAndSendKeys(driver, By.cssSelector(widthNameSelector), "Breedte");
-        scrollToElementAndSendKeys(driver, By.cssSelector(widthValueSelector), product.getWidth());
-
-        clickNewPropertyButton(driver);
-
-        // Length
-        scrollToElementAndSendKeys(driver, By.cssSelector(lengthNameSelector), "Lengte");
-        scrollToElementAndSendKeys(driver, By.cssSelector(lengthValueSelector), product.getSplitLength());
+//        scrollToElementAndSendKeys(driver, By.cssSelector(heightNameSelector), "Hoogte");
+//        scrollToElementAndSendKeys(driver, By.cssSelector(heightValueSelector), product.getHeight());
+//
+//        clickNewPropertyButton(driver);
+//
+//        // Width
+//        scrollToElementAndSendKeys(driver, By.cssSelector(widthNameSelector), "Breedte");
+//        scrollToElementAndSendKeys(driver, By.cssSelector(widthValueSelector), product.getWidth());
+//
+//        clickNewPropertyButton(driver);
+//
+//        // Length
+//        scrollToElementAndSendKeys(driver, By.cssSelector(lengthNameSelector), "Lengte");
+//        scrollToElementAndSendKeys(driver, By.cssSelector(lengthValueSelector), product.getSplitLength());
     }
 
 
@@ -212,10 +326,17 @@ public class InputBot {
         WebElement element = driver.findElement(by);
         ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView(true);", element);
         ((JavascriptExecutor) driver).executeScript("window.scrollBy(0, -200);"); // Scroll up by 200 pixels
+        element.clear();
         element.sendKeys(text);
     }
 
-
+    public static String getPhrase(WebDriver driver, int index) {
+        List<WebElement> elements = driver.findElements(By.cssSelector("input[class='input-block sync-label wpcpo-input-not-empty']"));
+        WebElement secondElement = elements.get(index);
+        String nameValue = secondElement.getAttribute("name");
+        String[] parts = nameValue.split("\\[wpcpo-|\\]\\[title\\]");
+        return parts[1];
+    }
 
     public static void waitForClickable() {
         try {
@@ -225,8 +346,8 @@ public class InputBot {
         }
     }
 
-    public static void assignBasicInfo(Product product, WebDriver driver){
-        driver.findElement(By.id("title")).sendKeys(product.getTitle());
+    public static void assignBasicInfo(Product product, WebDriver driver) {
+        driver.findElement(By.id("title")).sendKeys(product.getName());
 
         WebElement iframe = driver.findElement(By.id("content_ifr"));
         driver.switchTo().frame(iframe);

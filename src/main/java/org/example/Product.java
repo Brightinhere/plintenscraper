@@ -6,23 +6,25 @@ import java.util.Arrays;
 import java.util.List;
 
 class Product {
-    private String title;
-    private String link;
-    private String name;
-    private String description;
-    private String code;
-    private String material;
-    private String height;
-    private String width;
-    private String length;
-    private String pricePerMeter;
-    private String priceTax;
-    private String subcategory;
-    private String subcategory2;
-    private List<String> images;
-    private List<String> linkedProducts;
+    private final String title;
+    private final String link;
+    private final String name;
+    private final String description;
+    private final String code;
+    private final String material;
+    private final String height;
+    private final String width;
+    private final String length;
+    private final String pricePerMeter;
+    private final String subcategory;
+    private final String subcategory2;
+    private final List<String> images;
+    private final List<String> linkedProducts;
+    private final List<String> sizes;
+    private final List<String> finishes;
+    private final List<String> lengths;
 
-    public Product(String title, String link, String name, String description, String code, String material, String height, String width, String length, String pricePerMeter, String priceTax, String subcategory, String subcategory2, List<String> images, List<String> linkedProducts) {
+    public Product(String title, String link, String name, String description, String code, String material, String height, String width, String length, String pricePerMeter, String subcategory, String subcategory2, List<String> images, List<String> linkedProducts, List<String> sizes, List<String> finishes, List<String> lengths) {
         this.title = title;
         this.link = link;
         this.name = name;
@@ -33,11 +35,13 @@ class Product {
         this.width = width;
         this.length = length;
         this.pricePerMeter = pricePerMeter;
-        this.priceTax = priceTax;
         this.subcategory = subcategory;
         this.subcategory2 = subcategory2;
         this.images = images;
         this.linkedProducts = linkedProducts;
+        this.sizes = sizes;
+        this.finishes = finishes;
+        this.lengths = lengths;
     }
 
     public Product(String[] values) {
@@ -50,21 +54,20 @@ class Product {
         this.height = values[6];
         this.width = values[7];
         this.length = values[8];
-        this.pricePerMeter = extractNumericValue(values[9]);
-        this.priceTax = extractNumericValue(values[10]);
-        this.subcategory = values[11];
-        this.subcategory2 = values[12];
-
-        // You can set the images by calling a method that reads them from the folder
-        // this.images = readImagesFromFolder("product_images/" + this.title);
+        this.pricePerMeter = values[9];
+        this.subcategory = values[10];
+        this.subcategory2 = values[11];
 
         // Handling linked products
-        if (values.length > 13) {
-            this.linkedProducts = Arrays.asList(values[13].split(";"));
+        if (values.length > 12) {
+            this.linkedProducts = Arrays.asList(values[12].split("%"));
         } else {
             this.linkedProducts = new ArrayList<>();
         }
-        this.images = readImagesFromFolder(this.title.replaceAll("[^a-zA-Z0-9.-]", "_"));
+        this.images = readImagesFromFolder(this.title.replaceAll(",", "_").replaceAll("[^a-zA-Z0-9.-]", "_"));
+        this.sizes = values[13].equals("") ? new ArrayList<>() : Arrays.asList(values[13].split("%"));
+        this.finishes = values[14].equals("") ? new ArrayList<>() : Arrays.asList(values[14].split("%"));
+        this.lengths = values[15].equals("") ? new ArrayList<>() : Arrays.asList(values[15].split("%"));
     }
 
     public String getTitle() {
@@ -80,7 +83,7 @@ class Product {
     }
 
     public String getDescription() {
-        return description.replace(";", ",");
+        return description.replace(";", ",").replace("Let op: Dit is een uitlopend product. Aanbieding is geldig zolang de voorraad strekt.", "");
     }
 
     public String getCode() {
@@ -113,10 +116,6 @@ class Product {
         return price.replace(",", ".");
     }
 
-    public String getPriceTax() {
-        return priceTax;
-    }
-
     public String getSubcategory() {
         return subcategory;
     }
@@ -131,6 +130,18 @@ class Product {
 
     public List<String> getLinkedProducts() {
         return linkedProducts;
+    }
+
+    public List<String> getSizes() {
+        return sizes;
+    }
+
+    public List<String> getFinishes() {
+        return finishes;
+    }
+
+    public List<String> getLengths() {
+        return lengths;
     }
 
 

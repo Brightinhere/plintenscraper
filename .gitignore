@@ -38,8 +38,9 @@ build/
 .DS_Store
 
 out/*
-product_images/*
-plinten.csv
+backup/new/product_images/*
+backup/new/plinten.csv
+backup/*
 
 # Ignore recourses config file
 src/main/resources/config.properties
