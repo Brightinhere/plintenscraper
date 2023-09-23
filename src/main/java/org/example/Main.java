@@ -174,8 +174,7 @@ public class Main {
                         }
                         Files.copy(in, outputPath);
                     } catch (IOException e) {
-                        System.out.println("Error downloading image: " + imageUrl);
-                        e.printStackTrace();
+                        System.out.println("Error downloading image: " + product.getName());
                     }
                 }
             }
