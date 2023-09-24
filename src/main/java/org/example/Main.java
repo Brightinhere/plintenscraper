@@ -1,5 +1,6 @@
 package org.example;
 
+import javafx.util.Pair;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -9,38 +10,48 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
+import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
 
 public class Main {
     public static void main(String[] args) throws Exception {
-        final String baseUrl = "https://www.plintenfabriek.nl";
-        final String initialUrl = "https://www.plintenfabriek.nl/plinten";
-        int count = 1;
-        List<Product> products = new ArrayList<>();
+        try {
+            final String baseUrl = "https://www.plintenfabriek.nl";
+            final String initialUrl = "https://www.plintenfabriek.nl/plinten";
+            int count = 1;
+            List<Product> products = new ArrayList<>();
 
-        System.out.println("=================================");
-        System.out.println("Pagina: " + count);
-        System.out.println("=================================");
-        String nextPage = scrapePageInformation(initialUrl, products);
-
-        while (nextPage != null) {
-            count++;
             System.out.println("=================================");
             System.out.println("Pagina: " + count);
             System.out.println("=================================");
-            nextPage = scrapePageInformation(baseUrl + nextPage, products);
-        }
+            String nextPage = scrapePageInformation(initialUrl, products);
 
-        System.out.println("=================================");
-        System.out.println("Done scrapping, starting to export");
-        System.out.println("=================================");
-        exportProducts(products);
+            while (nextPage != null) {
+                count++;
+                System.out.println("=================================");
+                System.out.println("Pagina: " + count);
+                System.out.println("=================================");
+                nextPage = scrapePageInformation(baseUrl + nextPage, products);
+            }
+
+            System.out.println("=================================");
+            System.out.println("Done scrapping, starting to export");
+            System.out.println("=================================");
+//            exportProducts(products);
+            exportToCSVList(products);
+            Runtime.getRuntime().exec("curl -d \"Done running the script \" https://ntfy.sh/niemand_komt_hier_achter123566");
+        } catch (Exception e) {
+            Runtime.getRuntime().exec("curl -d \"Java Error: " + e.getMessage() + " \" https://ntfy.sh/niemand_komt_hier_achter123566");
+            System.err.println("Exception occurred: " + e.getMessage());
+        }
     }
+
 
     public static String scrapePageInformation(String url, List<Product> products) {
         try {
@@ -94,7 +105,34 @@ public class Main {
         List<String> linkedProducts = new ArrayList<String>(images.size());
 
         for (Element image : images) {
-            imagesSrc.add(image.attr("src").replace("thumb_", ""));
+            imagesSrc.add(image.attr("src").replaceFirst("thumb_", ""));
+        }
+
+//        if (imagesSrc.size() == 0) {
+//            try {
+//                String singleImage = productPageDocument.select("#productCarousel > div > div > a > img").get(0).attr("src");
+//                imagesSrc.add(singleImage);
+//            } catch (Exception e) {
+//                try {
+//                    String singleImage = productPageDocument.select("#productView > div > div > div.col-xs-12.col-sm-7.col-md-5 > div.relative > div > img").get(0).attr("src");
+//                    imagesSrc.add(singleImage);
+//                } catch (Exception ex) {
+//                    System.out.println("No images found for product: " + productTitle);
+//                }
+//                System.out.println("No images found for product: " + productTitle);
+//            }
+//        }
+        if (imagesSrc.size() == 0) {
+            Elements selectedImages1 = productPageDocument.select("#productCarousel > div > div > a > img");
+            Elements selectedImages2 = productPageDocument.select("#productView > div > div > div.col-xs-12.col-sm-7.col-md-5 > div.relative > div > img");
+
+            if (selectedImages1.size() > 0) {
+                imagesSrc.add(selectedImages1.get(0).attr("src"));
+            } else if (selectedImages2.size() > 0) {
+                imagesSrc.add(selectedImages2.get(0).attr("src"));
+            } else {
+                System.out.println("No images found for product: " + productTitle + " and this link: " + page);
+            }
         }
 
         Elements linkedElements = productPageDocument.select(".filter-alternative-model-wrapper");
@@ -159,28 +197,102 @@ public class Main {
                         product.getFinishes().size() > 0 ? String.join("%", product.getFinishes()) : "",
                         product.getLengths().size() > 0 ? String.join("%", product.getLengths()) : ""
                 ));
+                saveImages(baseDir, product);
 
-                // Create a directory for the product's images
-                Path productDir = Paths.get(baseDir, product.getTitle().replaceAll(",", "-").replaceAll("[^a-zA-Z0-9.-]", "_"));
-                Files.createDirectories(productDir);
-
-                // Download and save each image
-                for (String imageUrl : product.getImages()) {
-                    try (InputStream in = new URL(imageUrl).openStream()) {
-                        Path outputPath = productDir.resolve(Paths.get(new URL(imageUrl).getPath()).getFileName());
-                        // check if file already exists
-                        if (Files.exists(outputPath)) {
-                            continue;
-                        }
-                        Files.copy(in, outputPath);
-                    } catch (IOException e) {
-                        System.out.println("Error downloading image: " + product.getName());
-                    }
-                }
             }
         } catch (IOException e) {
             System.out.println("Error writing to file: " + e.getMessage());
             e.printStackTrace();
         }
     }
+
+    public static boolean saveImages(String baseDir, Product product) throws IOException {
+        // Get the base directory path
+        Path baseDirectoryPath = Paths.get(baseDir);
+        Files.createDirectories(baseDirectoryPath);
+
+        List<Pair<String, Integer>> imageUrlSizePairs = new ArrayList<>();
+
+        for (String imageUrl : product.getImages()) {
+            URL url = new URL(imageUrl);
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("HEAD");
+            int imageSize = connection.getContentLength();
+            imageUrlSizePairs.add(new Pair<>(imageUrl, imageSize));
+            connection.disconnect();
+        }
+
+        imageUrlSizePairs.sort((a, b) -> {
+            int sizeComparison = -Integer.compare(a.getValue(), b.getValue());
+            if (sizeComparison == 0) {
+                return -Integer.compare(imageUrlSizePairs.indexOf(a), imageUrlSizePairs.indexOf(b));
+            }
+            return sizeComparison;
+        });
+
+        boolean isImageSaved = false;
+        int index = 1;
+        for (Pair<String, Integer> pair : imageUrlSizePairs) {
+            String imageUrl = pair.getKey();
+            try (InputStream in = new URL(imageUrl).openStream()) {
+                Path outputPath = baseDirectoryPath.resolve(product.getCode() + "-" + index + ".jpg"); // adjust the extension if needed
+                Files.copy(in, outputPath, StandardCopyOption.REPLACE_EXISTING);
+                isImageSaved = true;
+            } catch (IOException e) {
+                System.out.println("Error downloading/saving image for product: " + product.getCode());
+            }
+            index++;
+        }
+
+        return isImageSaved;
+    }
+
+    public static void exportToCSVList(List<Product> products) throws IOException {
+        String fileName = "plinten_list.csv";
+
+        try (PrintWriter writer = new PrintWriter(new FileWriter(fileName))) {
+            writer.println("Title;Link;Name;Description;Code;Tag;MaterialName;Material;PricePerMeter;Category;Images;ImageSaved");
+            for (Product product : products) {
+                boolean isImageSaved = saveImages("product_images_2", product);
+                writer.println(String.format("%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%b",
+                        product.getTitle(),
+                        product.getLink(),
+                        product.getName(),
+                        product.getDescription(),
+                        product.getCode(),
+                        product.getCode(),
+                        "Materiaal",
+                        product.getMaterial(),
+                        product.getPricePerMeter(),
+                        product.getSubcategory() + " > " + product.getSubcategory2(),
+                        imagesToString(product),
+                        isImageSaved
+                ));
+            }
+        }
+    }
+
+
+    public static String imagesToString(Product product) {
+        StringBuilder result = new StringBuilder();
+        int index = 1; // for creating the title with an index
+
+        for (String image : product.getImages()) {
+            result.append("https://plintendiscount.nl/wp-content/uploads/2023/09/")
+                    .append(product.getCode())
+                    .append("-")
+                    .append(index)
+                    .append(".jpg")
+                    .append("|");
+            index++;
+        }
+
+        if (result.length() > 0) {
+            result.setLength(result.length() - 2);
+        }
+
+        return result.toString();
+    }
+
+
 }
