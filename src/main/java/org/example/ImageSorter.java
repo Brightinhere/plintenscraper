@@ -21,7 +21,6 @@ public class ImageSorter {
             return;
         }
 
-        // Sort the files based on product ID and index.
         Arrays.sort(files, Comparator.comparing(File::getName));
 
         String currentProductId = "";
@@ -37,7 +36,6 @@ public class ImageSorter {
     private static void processGroup(File[] files, String productId) throws IOException {
         File whiteCornerFile = null;
 
-        // First, rename all images except the one with the white corner.
         int newIndex = 1;
         for (File file : files) {
             if (file.getName().startsWith(productId + "-") && !file.getName().contains("-temp")) {
@@ -60,7 +58,6 @@ public class ImageSorter {
             }
         }
 
-        // Now, rename the -temp.jpg file (if exists)
         if (whiteCornerFile != null) {
             File newFile = new File(whiteCornerFile.getParent(), productId + "-" + newIndex + ".jpg");
             if (!whiteCornerFile.renameTo(newFile)) {

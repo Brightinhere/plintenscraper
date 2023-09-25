@@ -65,10 +65,21 @@ class Product {
             this.linkedProducts = new ArrayList<>();
         }
         this.images = readImagesFromFolder(this.title.replaceAll(",", "_").replaceAll("[^a-zA-Z0-9.-]", "_"));
-        this.sizes = values[13].equals("") ? new ArrayList<>() : Arrays.asList(values[13].split("%"));
-        this.finishes = values[14].equals("") ? new ArrayList<>() : Arrays.asList(values[14].split("%"));
-        this.lengths = values[15].equals("") ? new ArrayList<>() : Arrays.asList(values[15].split("%"));
+        this.sizes = (values.length > 13 && !values[13].equals(""))
+                ? Arrays.asList(values[13].split("%"))
+                : new ArrayList<>();
+
+        this.finishes = (values.length > 14 && !values[14].equals(""))
+                ? Arrays.asList(values[14].split("%"))
+                : new ArrayList<>();
+
+        this.lengths = (values.length > 15 && !values[15].equals(""))
+                ? Arrays.asList(values[15].split("%"))
+                : new ArrayList<>();
+
     }
+
+
 
     public String getTitle() {
         return title;

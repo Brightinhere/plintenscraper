@@ -235,7 +235,7 @@ public class Main {
         for (Pair<String, Integer> pair : imageUrlSizePairs) {
             String imageUrl = pair.getKey();
             try (InputStream in = new URL(imageUrl).openStream()) {
-                Path outputPath = baseDirectoryPath.resolve(product.getCode() + "-" + index + ".jpg"); // adjust the extension if needed
+                Path outputPath = baseDirectoryPath.resolve("v1_" + product.getCode() + "-" + index + ".jpg"); // adjust the extension if needed
                 Files.copy(in, outputPath, StandardCopyOption.REPLACE_EXISTING);
                 isImageSaved = true;
             } catch (IOException e) {
@@ -279,6 +279,7 @@ public class Main {
 
         for (String image : product.getImages()) {
             result.append("https://plintendiscount.nl/wp-content/uploads/2023/09/")
+                    .append("v1_")
                     .append(product.getCode())
                     .append("-")
                     .append(index)
@@ -288,7 +289,7 @@ public class Main {
         }
 
         if (result.length() > 0) {
-            result.setLength(result.length() - 2);
+            result.setLength(result.length() - 1);
         }
 
         return result.toString();

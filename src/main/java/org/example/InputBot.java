@@ -22,7 +22,7 @@ public class InputBot {
         final String baseUrl = "https://plintendiscount.nl/wp-login.php";
         final String username = Config.getUsername();
         final String password = Config.getPassword();
-//        System.setProperty("webdriver.chrome.driver");
+        System.setProperty("webdriver.chrome.driver", "../chromedriver-win64/chromedriver.exe");
         WebDriver driver = new ChromeDriver();
 
         try {
@@ -34,20 +34,26 @@ public class InputBot {
         String csvFile = "plinten.csv";
         String line;
         String delimiter = ";";
-        int counter = 0;
+        int counter = 1;
         try (BufferedReader br = new BufferedReader(new FileReader(csvFile))) {
             String headerLine = br.readLine();
             String[] headers = headerLine.split(delimiter);
             while ((line = br.readLine()) != null) {
                 counter++;
-//                if (counter < 49) {
+//                if (counter <= 65) {
 //                    continue;
 //                }
                 String[] values = line.split(delimiter);
 
                 Product product = new Product(values);
-                addNewProduct(driver, product);
-                addOptionsForProduct(product, driver);
+//                addNewProduct(driver, product);
+                try {
+                    System.out.println("Starting to add options for product: " + product.getCode() + " (" + counter + ")");
+                    addOptionsForProduct(product, driver);
+                    System.out.println("Added options for product: " + product.getCode());
+                } catch (Exception e) {
+                    System.out.println("Failed to add options for product: " + product.getCode());
+                }
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -57,7 +63,7 @@ public class InputBot {
 
     public static void addOptionsForProduct(Product product, WebDriver driver) {
         driver.get("https://plintendiscount.nl/wp-admin/post-new.php?post_type=wpc_product_option");
-        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(30));
         wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("#title")));
         driver.findElement(By.cssSelector("#title")).sendKeys(product.getName() + " - " + product.getCode());
 
@@ -78,16 +84,20 @@ public class InputBot {
         }
 
         if (product.getLengths().size() > 0) {
-            addLengthsOptions(product, driver, wait);
+            if (product.getSizes().size() == 0) {
+                addLengthsOptionsOnly(product, driver, wait);
+            } else {
+                addLengthsOptions(product, driver, wait);
+            }
         }
 
         if (product.getFinishes().size() > 0) {
             addFinishesOptions(product, driver, wait);
         }
 
-        // If there are no options, add a default option
-        if (product.getSizes().size() > 0 && product.getLengths().size() > 0 && product.getFinishes().size() > 0) {
+        if (product.getSizes().size() > 0 || product.getLengths().size() > 0 || product.getFinishes().size() > 0) {
             scrollToElementAndClick(driver, By.cssSelector("#publish"));
+            System.out.println("Saving option for: " + product.getCode());
             wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector("#publish")));
         }
     }
@@ -145,6 +155,33 @@ public class InputBot {
                 wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector(baseSelector + " > div:nth-child(6) > div > div.inner-content.ui-sortable > div:nth-child(" + counter + ") > input.option-name")));
                 scrollToElementAndSendKeys(driver, By.cssSelector(baseSelector + " > div:nth-child(6) > div > div.inner-content.ui-sortable > div:nth-child(" + counter + ") > input.option-name"), length);
                 scrollToElementAndSendKeys(driver, By.cssSelector(baseSelector + " > div:nth-child(6) > div > div.inner-content.ui-sortable > div:nth-child(" + counter + ") > input.option-value.wpcpo-input-not-empty"), length);
+            }
+            counter++;
+        }
+    }
+
+    public static void addLengthsOptionsOnly(Product product, WebDriver driver, WebDriverWait wait) {
+        int counter = 1;
+        wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector("#wpcpo_fields > div.inside > div > div.wpcpo-items.ui-sortable > div > div.wpcpo-item-header > span.wpcpo-item-label")));
+        scrollToElementAndClick(driver, By.cssSelector("#wpcpo_fields > div.inside > div > div.wpcpo-items.ui-sortable > div > div.wpcpo-item-header > span.wpcpo-item-label"));
+
+        wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("[id^='tab-wpcpo-'][id$='-general'] > div:nth-child(2) > label > input")));
+        scrollToElementAndSendKeys(driver, By.cssSelector("[id^='tab-wpcpo-'][id$='-general'] > div:nth-child(2) > label > input"), "Lengte");
+
+        checkBoxes(driver, "[id^='tab-wpcpo-'][id$='-general']");
+
+        // For each finish, add a new option
+        for (String length : product.getLengths()) {
+            if (counter == 1) {
+                scrollToElementAndClick(driver, By.cssSelector("[id^='tab-wpcpo-'][id$='-general'] > div:nth-child(6) > div > div.inner-footer > button"));
+                wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("[id^='tab-wpcpo-'][id$='-general'] > div:nth-child(6) > div > div.inner-content.ui-sortable > div > input.option-name")));
+                driver.findElement(By.cssSelector("[id^='tab-wpcpo-'][id$='-general'] > div:nth-child(6) > div > div.inner-content.ui-sortable > div > input.option-name")).sendKeys(length);
+                driver.findElement(By.cssSelector("[id^='tab-wpcpo-'][id$='-general'] > div:nth-child(6) > div > div.inner-content.ui-sortable > div > input.option-value.wpcpo-input-not-empty")).sendKeys(length);
+            } else {
+                scrollToElementAndClick(driver, By.cssSelector("[id^='tab-wpcpo-'][id$='-general'] > div:nth-child(6) > div > div.inner-footer > button"));
+                wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("[id^='tab-wpcpo-'][id$='-general'] > div:nth-child(6) > div > div.inner-content.ui-sortable > div:nth-child(" + counter + ") > input.option-name")));
+                scrollToElementAndSendKeys(driver, By.cssSelector("[id^='tab-wpcpo-'][id$='-general'] > div:nth-child(6) > div > div.inner-content.ui-sortable > div:nth-child(" + counter + ") > input.option-name"), length);
+                scrollToElementAndSendKeys(driver, By.cssSelector("[id^='tab-wpcpo-'][id$='-general'] > div:nth-child(6) > div > div.inner-content.ui-sortable > div:nth-child(" + counter + ") > input.option-value.wpcpo-input-not-empty"), length);
             }
             counter++;
         }
@@ -345,7 +382,7 @@ public class InputBot {
     }
 
     public static void scrollToElementAndSendKeys(WebDriver driver, By by, String text) {
-        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(20));
         wait.until(ExpectedConditions.elementToBeClickable(by));
         WebElement element = driver.findElement(by);
         ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView(true);", element);
